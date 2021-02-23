@@ -1,0 +1,2986 @@
+pool:
+  vmImage: vs2017-win2016
+trigger:
+- buildbranch_win
+pr: none
+stages:
+- stage: stage_0
+  jobs:
+  - job: ros_foxy_rosidl_cmake_ros_foxy_rosidl_runtime_c_ros_foxy_rcpputils_ros_foxy_rcl_logging_spdlog_ros_foxy_urdfdom
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rosidl-cmake ros-foxy-rosidl-runtime-c ros-foxy-rcpputils
+          ros-foxy-rcl-logging-spdlog ros-foxy-urdfdom
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rosidl-cmake ros-foxy-rosidl-runtime-c ros-foxy-rcpputils
+        ros-foxy-rcl-logging-spdlog ros-foxy-urdfdom
+- stage: stage_1
+  jobs:
+  - job: ros_foxy_rosidl_generator_c_ros_foxy_rmw_ros_foxy_rosidl_generator_dds_idl_ros_foxy_rosidl_typesupport_introspection_c_ros_foxy_libyaml_vendor
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rosidl-generator-c ros-foxy-rmw ros-foxy-rosidl-generator-dds-idl
+          ros-foxy-rosidl-typesupport-introspection-c ros-foxy-libyaml-vendor
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rosidl-generator-c ros-foxy-rmw ros-foxy-rosidl-generator-dds-idl
+        ros-foxy-rosidl-typesupport-introspection-c ros-foxy-libyaml-vendor
+  - job: ros_foxy_class_loader_ros_foxy_urdf
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-class-loader ros-foxy-urdf
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-class-loader ros-foxy-urdf
+- stage: stage_2
+  jobs:
+  - job: ros_foxy_rosidl_generator_cpp_ros_foxy_rosidl_typesupport_connext_cpp_ros_foxy_rosidl_typesupport_fastrtps_cpp_ros_foxy_rosidl_typesupport_introspection_cpp_ros_foxy_rcl_yaml_param_parser
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rosidl-generator-cpp ros-foxy-rosidl-typesupport-connext-cpp
+          ros-foxy-rosidl-typesupport-fastrtps-cpp ros-foxy-rosidl-typesupport-introspection-cpp
+          ros-foxy-rcl-yaml-param-parser
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rosidl-generator-cpp ros-foxy-rosidl-typesupport-connext-cpp
+        ros-foxy-rosidl-typesupport-fastrtps-cpp ros-foxy-rosidl-typesupport-introspection-cpp
+        ros-foxy-rcl-yaml-param-parser
+  - job: ros_foxy_rmw_connext_shared_cpp_ros_foxy_kdl_parser_ros_foxy_pluginlib
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rmw-connext-shared-cpp ros-foxy-kdl-parser ros-foxy-pluginlib
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rmw-connext-shared-cpp ros-foxy-kdl-parser ros-foxy-pluginlib
+- stage: stage_3
+  jobs:
+  - job: ros_foxy_rosidl_typesupport_connext_c_ros_foxy_rosidl_typesupport_fastrtps_c_ros_foxy_rosidl_typesupport_c_ros_foxy_rmw_connext_cpp
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rosidl-typesupport-connext-c ros-foxy-rosidl-typesupport-fastrtps-c
+          ros-foxy-rosidl-typesupport-c ros-foxy-rmw-connext-cpp
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rosidl-typesupport-connext-c ros-foxy-rosidl-typesupport-fastrtps-c
+        ros-foxy-rosidl-typesupport-c ros-foxy-rmw-connext-cpp
+- stage: stage_4
+  jobs:
+  - job: ros_foxy_rosidl_generator_py_ros_foxy_rosidl_typesupport_cpp_ros_foxy_rosidl_default_generators_ros_foxy_rosidl_default_runtime
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rosidl-generator-py ros-foxy-rosidl-typesupport-cpp
+          ros-foxy-rosidl-default-generators ros-foxy-rosidl-default-runtime
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rosidl-generator-py ros-foxy-rosidl-typesupport-cpp
+        ros-foxy-rosidl-default-generators ros-foxy-rosidl-default-runtime
+- stage: stage_5
+  jobs:
+  - job: ros_foxy_builtin_interfaces_ros_foxy_rmw_dds_common_ros_foxy_unique_identifier_msgs_ros_foxy_lifecycle_msgs_ros_foxy_std_srvs
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-builtin-interfaces ros-foxy-rmw-dds-common ros-foxy-unique-identifier-msgs
+          ros-foxy-lifecycle-msgs ros-foxy-std-srvs
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-builtin-interfaces ros-foxy-rmw-dds-common ros-foxy-unique-identifier-msgs
+        ros-foxy-lifecycle-msgs ros-foxy-std-srvs
+- stage: stage_6
+  jobs:
+  - job: ros_foxy_rcl_interfaces_ros_foxy_rmw_cyclonedds_cpp_ros_foxy_rmw_fastrtps_shared_cpp_ros_foxy_action_msgs_ros_foxy_statistics_msgs
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rcl-interfaces ros-foxy-rmw-cyclonedds-cpp ros-foxy-rmw-fastrtps-shared-cpp
+          ros-foxy-action-msgs ros-foxy-statistics-msgs
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rcl-interfaces ros-foxy-rmw-cyclonedds-cpp ros-foxy-rmw-fastrtps-shared-cpp
+        ros-foxy-action-msgs ros-foxy-statistics-msgs
+  - job: ros_foxy_std_msgs_ros_foxy_rosgraph_msgs
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-std-msgs ros-foxy-rosgraph-msgs
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-std-msgs ros-foxy-rosgraph-msgs
+- stage: stage_7
+  jobs:
+  - job: ros_foxy_test_msgs_ros_foxy_geometry_msgs_ros_foxy_composition_interfaces_ros_foxy_actionlib_msgs
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-test-msgs ros-foxy-geometry-msgs ros-foxy-composition-interfaces
+          ros-foxy-actionlib-msgs
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-test-msgs ros-foxy-geometry-msgs ros-foxy-composition-interfaces
+        ros-foxy-actionlib-msgs
+- stage: stage_8
+  jobs:
+  - job: ros_foxy_rmw_fastrtps_cpp_ros_foxy_sensor_msgs_ros_foxy_tf2_msgs_ros_foxy_tf2_ros_foxy_diagnostic_msgs
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rmw-fastrtps-cpp ros-foxy-sensor-msgs ros-foxy-tf2-msgs
+          ros-foxy-tf2 ros-foxy-diagnostic-msgs
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rmw-fastrtps-cpp ros-foxy-sensor-msgs ros-foxy-tf2-msgs
+        ros-foxy-tf2 ros-foxy-diagnostic-msgs
+  - job: ros_foxy_nav_msgs_ros_foxy_shape_msgs_ros_foxy_trajectory_msgs_ros_foxy_visualization_msgs_ros_foxy_rosidl_runtime_py
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-nav-msgs ros-foxy-shape-msgs ros-foxy-trajectory-msgs
+          ros-foxy-visualization-msgs ros-foxy-rosidl-runtime-py
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-nav-msgs ros-foxy-shape-msgs ros-foxy-trajectory-msgs
+        ros-foxy-visualization-msgs ros-foxy-rosidl-runtime-py
+- stage: stage_9
+  jobs:
+  - job: ros_foxy_rmw_implementation_ros_foxy_stereo_msgs_ros_foxy_rcl_ros_foxy_common_interfaces
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rmw-implementation ros-foxy-stereo-msgs ros-foxy-rcl
+          ros-foxy-common-interfaces
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rmw-implementation ros-foxy-stereo-msgs ros-foxy-rcl
+        ros-foxy-common-interfaces
+- stage: stage_10
+  jobs:
+  - job: ros_foxy_libstatistics_collector_ros_foxy_rcl_action_ros_foxy_rcl_lifecycle
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-libstatistics-collector ros-foxy-rcl-action ros-foxy-rcl-lifecycle
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-libstatistics-collector ros-foxy-rcl-action ros-foxy-rcl-lifecycle
+- stage: stage_11
+  jobs:
+  - job: ros_foxy_rclcpp_ros_foxy_rclpy
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rclcpp ros-foxy-rclpy
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rclcpp ros-foxy-rclpy
+- stage: stage_12
+  jobs:
+  - job: ros_foxy_message_filters_ros_foxy_rclcpp_action_ros_foxy_rclcpp_components_ros_foxy_tf2_py_ros_foxy_launch_ros
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-message-filters ros-foxy-rclcpp-action ros-foxy-rclcpp-components
+          ros-foxy-tf2-py ros-foxy-launch-ros
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-message-filters ros-foxy-rclcpp-action ros-foxy-rclcpp-components
+        ros-foxy-tf2-py ros-foxy-launch-ros
+  - job: ros_foxy_ros2cli_ros_foxy_rclcpp_lifecycle_ros_foxy_rosbag2_test_common
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-ros2cli ros-foxy-rclcpp-lifecycle ros-foxy-rosbag2-test-common
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-ros2cli ros-foxy-rclcpp-lifecycle ros-foxy-rosbag2-test-common
+- stage: stage_13
+  jobs:
+  - job: ros_foxy_tf2_ros_ros_foxy_launch_testing_ros_ros_foxy_ros2lifecycle_test_fixtures_ros_foxy_ros2multicast_ros_foxy_sros2
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-tf2-ros ros-foxy-launch-testing-ros ros-foxy-ros2lifecycle-test-fixtures
+          ros-foxy-ros2multicast ros-foxy-sros2
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-tf2-ros ros-foxy-launch-testing-ros ros-foxy-ros2lifecycle-test-fixtures
+        ros-foxy-ros2multicast ros-foxy-sros2
+  - job: ros_foxy_rosbag2_storage
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rosbag2-storage
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rosbag2-storage
+- stage: stage_14
+  jobs:
+  - job: ros_foxy_tf2_bullet_ros_foxy_tf2_eigen_ros_foxy_tf2_geometry_msgs_ros_foxy_tf2_kdl_ros_foxy_tf2_sensor_msgs
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-tf2-bullet ros-foxy-tf2-eigen ros-foxy-tf2-geometry-msgs
+          ros-foxy-tf2-kdl ros-foxy-tf2-sensor-msgs
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-tf2-bullet ros-foxy-tf2-eigen ros-foxy-tf2-geometry-msgs
+        ros-foxy-tf2-kdl ros-foxy-tf2-sensor-msgs
+  - job: ros_foxy_tf2_tools_ros_foxy_robot_state_publisher_ros_foxy_ros2test_ros_foxy_sros2_cmake_ros_foxy_rosbag2_cpp
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-tf2-tools ros-foxy-robot-state-publisher ros-foxy-ros2test
+          ros-foxy-sros2-cmake ros-foxy-rosbag2-cpp
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-tf2-tools ros-foxy-robot-state-publisher ros-foxy-ros2test
+        ros-foxy-sros2-cmake ros-foxy-rosbag2-cpp
+  - job: ros_foxy_rosbag2_storage_default_plugins
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-rosbag2-storage-default-plugins
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-rosbag2-storage-default-plugins
+- stage: stage_15
+  jobs:
+  - job: ros_foxy_geometry2_ros_foxy_ros_testing_ros_foxy_rosbag2_compression_ros_foxy_rosbag2_converter_default_plugins
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-geometry2 ros-foxy-ros-testing ros-foxy-rosbag2-compression
+          ros-foxy-rosbag2-converter-default-plugins
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-geometry2 ros-foxy-ros-testing ros-foxy-rosbag2-compression
+        ros-foxy-rosbag2-converter-default-plugins
+- stage: stage_16
+  jobs:
+  - job: ros_foxy_ros2action_ros_foxy_ros2node_ros_foxy_ros2service_ros_foxy_ros2pkg_ros_foxy_ros2doctor
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-ros2action ros-foxy-ros2node ros-foxy-ros2service
+          ros-foxy-ros2pkg ros-foxy-ros2doctor
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-ros2action ros-foxy-ros2node ros-foxy-ros2service
+        ros-foxy-ros2pkg ros-foxy-ros2doctor
+  - job: ros_foxy_ros2interface_ros_foxy_ros2topic_ros_foxy_rosbag2_transport
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-ros2interface ros-foxy-ros2topic ros-foxy-rosbag2-transport
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-ros2interface ros-foxy-ros2topic ros-foxy-rosbag2-transport
+- stage: stage_17
+  jobs:
+  - job: ros_foxy_ros2param_ros_foxy_ros2launch_ros_foxy_ros2lifecycle_ros_foxy_ros2run_ros_foxy_ros2bag
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-ros2param ros-foxy-ros2launch ros-foxy-ros2lifecycle
+          ros-foxy-ros2run ros-foxy-ros2bag
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-ros2param ros-foxy-ros2launch ros-foxy-ros2lifecycle
+        ros-foxy-ros2run ros-foxy-ros2bag
+- stage: stage_18
+  jobs:
+  - job: ros_foxy_ros2component_ros_foxy_rosbag2_tests_ros_foxy_ros_core_ros_foxy_rosbag2
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-ros2component ros-foxy-rosbag2-tests ros-foxy-ros-core
+          ros-foxy-rosbag2
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-ros2component ros-foxy-rosbag2-tests ros-foxy-ros-core
+        ros-foxy-rosbag2
+- stage: stage_19
+  jobs:
+  - job: ros_foxy_ros_base
+    variables:
+      CONDA_BLD_PATH: C:\\bld\\
+    steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+    - script: conda install -c conda-forge --yes --quiet conda-build pip mamba ruamel.yaml
+        anaconda-client
+      displayName: Install conda-build, boa and activate environment
+    - script: |
+        set "CI=azure"
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        :: 2 cores available on Appveyor workers: https://www.appveyor.com/docs/build-environment/#build-vm-configurations
+        :: CPU_COUNT is passed through conda build: https://github.com/conda/conda-build/pull/1149
+        set CPU_COUNT=2
+
+        set PYTHONUNBUFFERED=1
+
+        conda config --set show_channel_urls true
+        conda config --set auto_update_conda false
+        conda config --set add_pip_as_python_dependency false
+
+        call setup_x64
+
+        :: Set the conda-build working directory to a smaller path
+        if "%CONDA_BLD_PATH%" == "" (
+            set "CONDA_BLD_PATH=C:\bld\"
+        )
+
+        :: Remove some directories from PATH
+        set "PATH=%PATH:C:\ProgramData\Chocolatey\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\sbt\bin;=%"
+        set "PATH=%PATH:C:\Rust\.cargo\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%"
+        set "PATH=%PATH:C:\Program Files\Git\cmd;=%"
+        set "PATH=%PATH:C:\Program Files\Git\mingw64\bin;=%"
+        set "PATH=%PATH:C:\Program Files (x86)\Subversion\bin;=%"
+        set "PATH=%PATH:C:\Program Files\CMake\bin;=%"
+        set "PATH=%PATH:C:\Program Files\OpenSSL\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\bin;=%"
+        set "PATH=%PATH:C:\Strawberry\perl\site\bin;=%"
+        set "PATH=%PATH:c:\tools\php;=%"
+
+        :: On azure, there are libcrypto*.dll & libssl*.dll under
+        :: C:\Windows\System32, which should not be there (no vendor dlls in windows folder).
+        :: They would be found before the openssl libs of the conda environment, so we delete them.
+        if defined CI (
+            DEL C:\Windows\System32\libcrypto-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libcrypto-1_1-x64.dll)
+            DEL C:\Windows\System32\libssl-1_1-x64.dll || (Echo Ignoring failure to delete C:\Windows\System32\libssl-1_1-x64.dll)
+        )
+
+        :: Make paths like C:\hostedtoolcache\windows\Ruby\2.5.7\x64\bin garbage
+        set "PATH=%PATH:ostedtoolcache=%"
+
+        mkdir "%CONDA_PREFIX%\etc\conda\activate.d"
+
+        echo set "CONDA_BLD_PATH=%CONDA_BLD_PATH%"         > "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "CPU_COUNT=%CPU_COUNT%"                  >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PYTHONUNBUFFERED=%PYTHONUNBUFFERED%"    >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+        echo set "PATH=%PATH%"                            >> "%CONDA_PREFIX%\etc\conda\activate.d\conda-forge-ci-setup-activate.bat"
+
+        conda info
+        conda config --show-sources
+        conda list --show-channel-urls
+      displayName: conda-forge build setup
+    - script: |
+        setlocal EnableExtensions EnableDelayedExpansion
+        call %CONDA%\condabin\conda_hook.bat
+        call %CONDA%\condabin\conda.bat activate base
+
+        set "FEEDSTOCK_ROOT=%cd%"
+
+        call conda config --append channels defaults
+        call conda config --add channels conda-forge
+        call conda config --add channels robostack
+        call conda config --set channel_priority strict
+
+        :: conda remove --force m2-git
+
+        C:\Miniconda\python.exe -m pip install git+https://github.com/mamba-org/boa.git@master
+        if errorlevel 1 exit 1
+
+        for %%X in (%CURRENT_RECIPES%) do (
+            echo "BUILDING RECIPE %%X"
+            cd %FEEDSTOCK_ROOT%\recipes\%%X\
+            copy %FEEDSTOCK_ROOT%\conda_build_config.yaml .\conda_build_config.yaml
+            boa build .
+            if errorlevel 1 exit 1
+        )
+
+        anaconda -t %ANACONDA_API_TOKEN% upload "C:\bld\win-64\*.tar.bz2" --force
+        if errorlevel 1 exit 1
+      env:
+        ANACONDA_API_TOKEN: $(ANACONDA_API_TOKEN)
+        CURRENT_RECIPES: ros-foxy-ros-base
+        PYTHONUNBUFFERED: 1
+      displayName: Build ros-foxy-ros-base

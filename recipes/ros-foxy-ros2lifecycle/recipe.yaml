@@ -1,0 +1,49 @@
+package:
+  name: ros-foxy-ros2lifecycle
+  version: 0.9.8
+source:
+  git_url: https://github.com/ros2-gbp/ros2cli-release.git
+  git_rev: release/foxy/ros2lifecycle/0.9.8-1
+  folder: ros-foxy-ros2lifecycle/src/work
+
+build:
+  script:
+    sel(win): bld_ament_python.bat
+    sel(unix): build_ament_python.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - pytest
+    - python
+    - ros-foxy-ament-copyright
+    - ros-foxy-ament-flake8
+    - ros-foxy-ament-pep257
+    - ros-foxy-ament-xmllint
+    - ros-foxy-rclpy
+    - ros-foxy-ros-testing
+    - ros-foxy-ros2cli
+    - ros-foxy-ros2lifecycle-test-fixtures
+  run:
+    - python
+    - ros-foxy-lifecycle-msgs
+    - ros-foxy-rclpy
+    - ros-foxy-ros2cli
+    - ros-foxy-ros2node
+    - ros-foxy-ros2service

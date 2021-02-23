@@ -1,0 +1,46 @@
+package:
+  name: ros-foxy-rosidl-runtime-py
+  version: 0.9.0
+source:
+  git_url: https://github.com/ros2-gbp/rosidl_runtime_py-release.git
+  git_rev: release/foxy/rosidl_runtime_py/0.9.0-1
+  folder: ros-foxy-rosidl-runtime-py/src/work
+
+build:
+  script:
+    sel(win): bld_ament_python.bat
+    sel(unix): build_ament_python.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - pytest
+    - python
+    - ros-foxy-ament-copyright
+    - ros-foxy-ament-flake8
+    - ros-foxy-ament-pep257
+    - ros-foxy-ament-xmllint
+    - ros-foxy-std-msgs
+    - ros-foxy-std-srvs
+    - ros-foxy-test-msgs
+  run:
+    - numpy
+    - python
+    - pyyaml
+    - ros-foxy-rosidl-parser

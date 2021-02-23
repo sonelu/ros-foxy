@@ -1,0 +1,70 @@
+package:
+  name: ros-foxy-rosidl-generator-py
+  version: 0.9.4
+source:
+  git_url: https://github.com/ros2-gbp/rosidl_python-release.git
+  git_rev: release/foxy/rosidl_generator_py/0.9.4-1
+  folder: ros-foxy-rosidl-generator-py/src/work
+  patches:
+    - patch/ros-foxy-rosidl-generator-py.patch
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - numpy
+    - pytest
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-cmake-pytest
+    - ros-foxy-ament-index-python
+    - ros-foxy-ament-lint-auto
+    - ros-foxy-ament-lint-common
+    - ros-foxy-python-cmake-module
+    - ros-foxy-rmw
+    - ros-foxy-rosidl-cmake
+    - ros-foxy-rosidl-generator-c
+    - ros-foxy-rosidl-generator-cpp
+    - ros-foxy-rosidl-parser
+    - ros-foxy-rosidl-runtime-c
+    - ros-foxy-rosidl-typesupport-c
+    - ros-foxy-rosidl-typesupport-connext-c
+    - ros-foxy-rosidl-typesupport-fastrtps-c
+    - ros-foxy-rosidl-typesupport-interface
+    - ros-foxy-rosidl-typesupport-introspection-c
+    - ros-foxy-rpyutils
+    - ros-foxy-test-interface-files
+  run:
+    - numpy
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-index-python
+    - ros-foxy-python-cmake-module
+    - ros-foxy-rmw
+    - ros-foxy-rosidl-cmake
+    - ros-foxy-rosidl-generator-c
+    - ros-foxy-rosidl-parser
+    - ros-foxy-rosidl-runtime-c
+    - ros-foxy-rosidl-typesupport-c
+    - ros-foxy-rosidl-typesupport-interface
+    - ros-foxy-rpyutils

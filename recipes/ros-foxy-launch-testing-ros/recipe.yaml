@@ -1,0 +1,43 @@
+package:
+  name: ros-foxy-launch-testing-ros
+  version: 0.11.1
+source:
+  git_url: https://github.com/ros2-gbp/launch_ros-release.git
+  git_rev: release/foxy/launch_testing_ros/0.11.1-1
+  folder: ros-foxy-launch-testing-ros/src/work
+
+build:
+  script:
+    sel(win): bld_ament_python.bat
+    sel(unix): build_ament_python.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - pytest
+    - python
+    - ros-foxy-ament-copyright
+    - ros-foxy-ament-flake8
+    - ros-foxy-ament-pep257
+    - ros-foxy-std-msgs
+  run:
+    - python
+    - ros-foxy-launch-ros
+    - ros-foxy-launch-testing
+    - ros-foxy-rclpy

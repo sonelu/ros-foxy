@@ -1,0 +1,53 @@
+package:
+  name: ros-foxy-launch-ros
+  version: 0.11.1
+source:
+  git_url: https://github.com/ros2-gbp/launch_ros-release.git
+  git_rev: release/foxy/launch_ros/0.11.1-1
+  folder: ros-foxy-launch-ros/src/work
+
+build:
+  script:
+    sel(win): bld_ament_python.bat
+    sel(unix): build_ament_python.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - pytest
+    - python
+    - pyyaml
+    - ros-foxy-ament-copyright
+    - ros-foxy-ament-flake8
+    - ros-foxy-ament-index-python
+    - ros-foxy-ament-pep257
+    - ros-foxy-composition-interfaces
+    - ros-foxy-launch
+    - ros-foxy-lifecycle-msgs
+    - ros-foxy-osrf-pycommon
+    - ros-foxy-rclpy
+  run:
+    - python
+    - pyyaml
+    - ros-foxy-ament-index-python
+    - ros-foxy-composition-interfaces
+    - ros-foxy-launch
+    - ros-foxy-lifecycle-msgs
+    - ros-foxy-osrf-pycommon
+    - ros-foxy-rclpy

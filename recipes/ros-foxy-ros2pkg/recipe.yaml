@@ -1,0 +1,46 @@
+package:
+  name: ros-foxy-ros2pkg
+  version: 0.9.8
+source:
+  git_url: https://github.com/ros2-gbp/ros2cli-release.git
+  git_rev: release/foxy/ros2pkg/0.9.8-1
+  folder: ros-foxy-ros2pkg/src/work
+
+build:
+  script:
+    sel(win): bld_ament_python.bat
+    sel(unix): build_ament_python.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - pytest
+    - python
+    - ros-foxy-ament-copyright
+    - ros-foxy-ament-flake8
+    - ros-foxy-ament-pep257
+    - ros-foxy-ament-xmllint
+    - ros-foxy-ros-testing
+    - ros-foxy-ros2cli
+  run:
+    - catkin_pkg
+    - empy
+    - python
+    - ros-foxy-ament-index-python
+    - ros-foxy-ros2cli

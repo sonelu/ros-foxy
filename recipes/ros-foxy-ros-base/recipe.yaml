@@ -1,0 +1,42 @@
+package:
+  name: ros-foxy-ros-base
+  version: 0.9.2
+source:
+  git_url: https://github.com/ros2-gbp/variants-release.git
+  git_rev: release/foxy/ros_base/0.9.2-1
+  folder: ros-foxy-ros-base/src/work
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - python
+    - ros-foxy-ament-cmake
+  run:
+    - python
+    - ros-foxy-geometry2
+    - ros-foxy-kdl-parser
+    - ros-foxy-robot-state-publisher
+    - ros-foxy-ros-core
+    - ros-foxy-rosbag2
+    - ros-foxy-urdf

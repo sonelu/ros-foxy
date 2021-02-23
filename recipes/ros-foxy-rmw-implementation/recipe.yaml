@@ -1,0 +1,51 @@
+package:
+  name: ros-foxy-rmw-implementation
+  version: 1.0.1
+source:
+  git_url: https://github.com/ros2-gbp/rmw_implementation-release.git
+  git_rev: release/foxy/rmw_implementation/1.0.1-1
+  folder: ros-foxy-rmw-implementation/src/work
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-lint-auto
+    - ros-foxy-ament-lint-common
+    - ros-foxy-rcpputils
+    - ros-foxy-rcutils
+    - ros-foxy-rmw
+    - ros-foxy-rmw-connext-cpp
+    - ros-foxy-rmw-cyclonedds-cpp
+    - ros-foxy-rmw-fastrtps-cpp
+    - ros-foxy-rmw-implementation-cmake
+  run:
+    - python
+    - ros-foxy-rcpputils
+    - ros-foxy-rcutils
+    - ros-foxy-rmw-connext-cpp
+    - ros-foxy-rmw-cyclonedds-cpp
+    - ros-foxy-rmw-fastrtps-cpp
+    - ros-foxy-rmw-implementation-cmake

@@ -1,0 +1,40 @@
+package:
+  name: ros-foxy-unique-identifier-msgs
+  version: 2.1.2
+source:
+  git_url: https://github.com/ros2-gbp/unique_identifier_msgs-release.git
+  git_rev: release/foxy/unique_identifier_msgs/2.1.2-1
+  folder: ros-foxy-unique-identifier-msgs/src/work
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-lint-auto
+    - ros-foxy-ament-lint-common
+    - ros-foxy-rosidl-default-generators
+  run:
+    - python
+    - ros-foxy-rosidl-default-runtime

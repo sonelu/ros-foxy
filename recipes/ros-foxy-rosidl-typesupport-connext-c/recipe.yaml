@@ -1,0 +1,56 @@
+package:
+  name: ros-foxy-rosidl-typesupport-connext-c
+  version: 1.0.2
+source:
+  git_url: https://github.com/ros2-gbp/rosidl_typesupport_connext-release.git
+  git_rev: release/foxy/rosidl_typesupport_connext_c/1.0.2-1
+  folder: ros-foxy-rosidl-typesupport-connext-c/src/work
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-lint-auto
+    - ros-foxy-ament-lint-common
+    - ros-foxy-connext-cmake-module
+    - ros-foxy-rcutils
+    - ros-foxy-rmw
+    - ros-foxy-rosidl-cmake
+    - ros-foxy-rosidl-generator-c
+    - ros-foxy-rosidl-generator-dds-idl
+    - ros-foxy-rosidl-runtime-c
+    - ros-foxy-rosidl-typesupport-connext-cpp
+  run:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-connext-cmake-module
+    - ros-foxy-rcutils
+    - ros-foxy-rmw
+    - ros-foxy-rosidl-cmake
+    - ros-foxy-rosidl-generator-c
+    - ros-foxy-rosidl-generator-dds-idl
+    - ros-foxy-rosidl-parser
+    - ros-foxy-rosidl-runtime-c
+    - ros-foxy-rosidl-typesupport-connext-cpp

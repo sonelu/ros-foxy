@@ -1,0 +1,50 @@
+package:
+  name: ros-foxy-common-interfaces
+  version: 2.0.3
+source:
+  git_url: https://github.com/ros2-gbp/common_interfaces-release.git
+  git_rev: release/foxy/common_interfaces/2.0.3-1
+  folder: ros-foxy-common-interfaces/src/work
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-lint-auto
+    - ros-foxy-ament-lint-common
+  run:
+    - python
+    - ros-foxy-actionlib-msgs
+    - ros-foxy-builtin-interfaces
+    - ros-foxy-diagnostic-msgs
+    - ros-foxy-geometry-msgs
+    - ros-foxy-nav-msgs
+    - ros-foxy-sensor-msgs
+    - ros-foxy-shape-msgs
+    - ros-foxy-std-msgs
+    - ros-foxy-std-srvs
+    - ros-foxy-stereo-msgs
+    - ros-foxy-trajectory-msgs
+    - ros-foxy-visualization-msgs

@@ -1,0 +1,45 @@
+package:
+  name: ros-foxy-rosidl-runtime-c
+  version: 1.2.0
+source:
+  git_url: https://github.com/ros2-gbp/rosidl-release.git
+  git_rev: release/foxy/rosidl_runtime_c/1.2.0-1
+  folder: ros-foxy-rosidl-runtime-c/src/work
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-cmake-ros
+    - ros-foxy-ament-lint-auto
+    - ros-foxy-ament-lint-common
+    - ros-foxy-performance-test-fixture
+    - ros-foxy-rcutils
+    - ros-foxy-rosidl-typesupport-interface
+  run:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-rcutils
+    - ros-foxy-rosidl-typesupport-interface

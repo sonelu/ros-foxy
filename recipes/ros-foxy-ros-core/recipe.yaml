@@ -1,0 +1,78 @@
+package:
+  name: ros-foxy-ros-core
+  version: 0.9.2
+source:
+  git_url: https://github.com/ros2-gbp/variants-release.git
+  git_rev: release/foxy/ros_core/0.9.2-1
+  folder: ros-foxy-ros-core/src/work
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - python
+    - ros-foxy-ament-cmake
+  run:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-cmake-auto
+    - ros-foxy-ament-cmake-gmock
+    - ros-foxy-ament-cmake-gtest
+    - ros-foxy-ament-cmake-pytest
+    - ros-foxy-ament-cmake-ros
+    - ros-foxy-ament-index-cpp
+    - ros-foxy-ament-index-python
+    - ros-foxy-ament-lint-auto
+    - ros-foxy-ament-lint-common
+    - ros-foxy-class-loader
+    - ros-foxy-common-interfaces
+    - ros-foxy-launch
+    - ros-foxy-launch-ros
+    - ros-foxy-launch-testing
+    - ros-foxy-launch-testing-ament-cmake
+    - ros-foxy-launch-testing-ros
+    - ros-foxy-launch-xml
+    - ros-foxy-launch-yaml
+    - ros-foxy-pluginlib
+    - ros-foxy-rcl-lifecycle
+    - ros-foxy-rclcpp
+    - ros-foxy-rclcpp-lifecycle
+    - ros-foxy-rclpy
+    - ros-foxy-ros-environment
+    - ros-foxy-ros2action
+    - ros-foxy-ros2component
+    - ros-foxy-ros2doctor
+    - ros-foxy-ros2interface
+    - ros-foxy-ros2launch
+    - ros-foxy-ros2lifecycle
+    - ros-foxy-ros2multicast
+    - ros-foxy-ros2node
+    - ros-foxy-ros2param
+    - ros-foxy-ros2pkg
+    - ros-foxy-ros2run
+    - ros-foxy-ros2service
+    - ros-foxy-ros2topic
+    - ros-foxy-rosidl-default-generators
+    - ros-foxy-rosidl-default-runtime
+    - ros-foxy-sros2
+    - ros-foxy-sros2-cmake

@@ -1,0 +1,43 @@
+package:
+  name: ros-foxy-sros2-cmake
+  version: 0.9.4
+source:
+  git_url: https://github.com/ros2-gbp/sros2-release.git
+  git_rev: release/foxy/sros2_cmake/0.9.4-1
+  folder: ros-foxy-sros2-cmake/src/work
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-cmake-test
+    - ros-foxy-ament-lint-auto
+    - ros-foxy-ament-lint-common
+    - ros-foxy-ros2cli
+    - ros-foxy-sros2
+  run:
+    - python
+    - ros-foxy-ros2cli
+    - ros-foxy-sros2

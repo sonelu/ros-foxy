@@ -1,0 +1,64 @@
+package:
+  name: ros-foxy-rosidl-default-generators
+  version: 1.0.0
+source:
+  git_url: https://github.com/ros2-gbp/rosidl_defaults-release.git
+  git_rev: release/foxy/rosidl_default_generators/1.0.0-1
+  folder: ros-foxy-rosidl-default-generators/src/work
+
+build:
+  script:
+    sel(win): bld_ament_cmake.bat
+    sel(unix): build_ament_cmake.sh
+  number: 0
+about:
+  home: https://www.ros.org/
+  license: BSD-3-Clause
+  summary: |
+    Robot Operating System
+
+extra:
+  recipe-maintainers:
+    - ros-forge
+
+requirements:
+  build:
+    - "{{ compiler('cxx') }}"
+    - "{{ compiler('c') }}"
+    - ninja
+    - sel(unix): make
+    - sel(osx): tapi
+    - cmake
+  host:
+    - python
+    - ros-foxy-ament-cmake
+    - ros-foxy-ament-cmake-core
+    - ros-foxy-ament-lint-auto
+    - ros-foxy-ament-lint-common
+    - ros-foxy-rosidl-cmake
+    - ros-foxy-rosidl-generator-c
+    - ros-foxy-rosidl-generator-cpp
+    - ros-foxy-rosidl-generator-py
+    - ros-foxy-rosidl-typesupport-c
+    - ros-foxy-rosidl-typesupport-connext-c
+    - ros-foxy-rosidl-typesupport-connext-cpp
+    - ros-foxy-rosidl-typesupport-cpp
+    - ros-foxy-rosidl-typesupport-fastrtps-c
+    - ros-foxy-rosidl-typesupport-fastrtps-cpp
+    - ros-foxy-rosidl-typesupport-introspection-c
+    - ros-foxy-rosidl-typesupport-introspection-cpp
+  run:
+    - python
+    - ros-foxy-ament-cmake-core
+    - ros-foxy-rosidl-cmake
+    - ros-foxy-rosidl-generator-c
+    - ros-foxy-rosidl-generator-cpp
+    - ros-foxy-rosidl-generator-py
+    - ros-foxy-rosidl-typesupport-c
+    - ros-foxy-rosidl-typesupport-connext-c
+    - ros-foxy-rosidl-typesupport-connext-cpp
+    - ros-foxy-rosidl-typesupport-cpp
+    - ros-foxy-rosidl-typesupport-fastrtps-c
+    - ros-foxy-rosidl-typesupport-fastrtps-cpp
+    - ros-foxy-rosidl-typesupport-introspection-c
+    - ros-foxy-rosidl-typesupport-introspection-cpp
